@@ -5,11 +5,14 @@ This file holds all the stuff needed for a command line UI for the bulk mailer p
 import argparse
 import platform
 import subprocess
-from typing import Any, List, Callable, Union, Optional
+import time
+from typing import Any, Callable, Union, Optional
 
 import lib
+from lib.server_connections import Encryption, ServerConnection, ServerConnectionList
 
 HEADLINE = f"Bulk Mailer v{lib.__version__}"
+SLC = ServerConnectionList()
 
 
 class Parser(argparse.ArgumentParser):
@@ -152,11 +155,180 @@ def view_server_list():
     return None
 
 
+def _create_input_message(item: str) -> str:
+    """
+    This function adds the value in item into a standard "Please enter X" input prompt and returns the input result.
+    :param item: A textual description of what is expected.
+    :return: The input of the user.
+    """
+    return input(f"Please enter {item}: ")
+
+
+def is_int(s: str) -> int:
+    """
+    This function is a dirty approach to test, if a string can be converted into an int.
+    :param s: the str object to be tested for transferability to int.
+    :return: True, if s can be converted to int, False otherwise.
+    """
+    try:
+        _ = int(s)
+    except ValueError:
+        return False
+    return True
+
+
 def add_server():
     """
     This function provides the ui to add a new server configuration.
     :return:
     """
+    num_steps = 11
+    current_step = 1
+
+    def step_base(i: int) -> None:
+        """
+        This subfunction creates for every step of the process a clean screen and shows some basic information.
+        :param i: the number of the current step.
+        """
+        clear_screen()
+        print(HEADLINE)
+        print(f"You are currently creating a new mail server connection configuration.\nStep {i} of {num_steps}\n")
+
+    def _get_port(server_type: str) -> int | None:
+        """
+        This method asks for a port number and returns only an int, if the user enters a correct value.
+        Else, and if the user aborts input, it returns None.
+        :param server_type: A string containing some expression referring to a type of server.
+        :return: the port number, if a valid one was entered by the user. None otherwise.
+        """
+        port: str = _create_input_message(f"{server_type} server port number")
+        if is_int(port):
+            out: int = int(port)
+            if out > 0:
+                return out
+        choice = input("Not a valid port number! Retry? (y/n) ")
+        if choice.casefold() != "y":
+            return None
+        return _get_port(server_type)
+
+    def _get_pseudo_bool_option(question_text: str, options: list[tuple[str, Any]]) -> Any:
+        """
+        This subfunction asks the user a question and presents a set of answer options.
+        It returns the value of the selected option.
+        :param question_text: The text of the question to ask the user.
+        :param options: A list consisting of tuples consisting of the displayed answers and their associated values.
+        :return: the value of the selected option.
+        """
+        print(f"{question_text}\n")
+        counter_width: int = len(str(len(options)))
+        values: dict[str, Any] = {}
+        for i, (option, value) in enumerate(options, 1):
+            print(f"{i:>{counter_width}}. {option}")
+            values[f"{i}"] = value
+        choice = input("\nPlease enter the number of the best fitting option: ")
+        while choice not in values:
+            print("This is not a valid option!")
+            choice = input("Please enter the number of the best fitting option: ")
+        return values[choice]
+
+    # Get SMTP host name
+    step_base(current_step)
+    smtp_host = _create_input_message("SMTP server host name")
+    if smtp_host.strip() == "":
+        return None
+    current_step += 1
+
+    # Get SMTP port number
+    step_base(current_step)
+    smtp_port = _get_port("SMTP")
+    if smtp_port is None:
+        return None
+    current_step += 1
+
+    # Ask if the SMTP server needs encryption, and if so, which one.
+    step_base(current_step)
+    smtp_encryption = _get_pseudo_bool_option(
+        "Does the SMTP server connection need to be encrypted?",
+        [("No.", False), ("Yes, with SSL.", Encryption.SSL), ("Yes, with STARTTLS.", Encryption.STARTTLS)]
+    )
+    current_step += 1
+
+    # Ask if the user needs to authenticate at the SMTP server.
+    step_base(current_step)
+    smtp_login = _get_pseudo_bool_option(
+        "Do you need to authenticate on the SMTP server in order to send mails?",
+        [("Yes. [Credentials will be prompted on email sending]", True), ("No.", False)]
+    )
+    current_step += 1
+
+    # Get IMAP host name
+    step_base(current_step)
+    imap_host = _create_input_message("IMAP server host name")
+    if imap_host.strip() == "":
+        return None
+    current_step += 1
+
+    # Get IMAP port number
+    step_base(current_step)
+    imap_port = _get_port("IMAP")
+    if imap_port is None:
+        return None
+    current_step += 1
+
+    # Ask if the IMAP server needs encryption, and if so, which one.
+    step_base(current_step)
+    imap_encryption = _get_pseudo_bool_option(
+        "Does the IMAP server connection need to be encrypted?",
+        [("No.", False), ("Yes, with SSL.", Encryption.SSL), ("Yes, with STARTTLS.", Encryption.STARTTLS)]
+    )
+    current_step += 1
+
+    # Ask if the user needs to authenticate at the IMAP server.
+    step_base(current_step)
+    imap_login = _get_pseudo_bool_option(
+        "Do you need to authenticate on the IMAP server?",
+        [("Yes. [Credentials will be prompted on email sending]", True), ("No.", False)]
+    )
+    current_step += 1
+
+    # Ask if the SMTP server and the IMAP server share authentication credentials.
+    share_login: bool
+    if smtp_login and imap_login:
+        num_steps += 1
+        step_base(current_step)
+        share_login = _get_pseudo_bool_option(
+            "Do you use the same the same authentication credentials for SMTP server as for IMAP server?",
+            [("Yes", True), ("No", False)]
+        )
+        current_step += 1
+    else:
+        share_login = False
+
+    # Ask the user for its name for display as sender name
+    # Ask the user for its email address for use in "From" field.
+    step_base(current_step)
+    sender_name = _create_input_message("sender name for display in \"From\" field")
+    sender_email = _create_input_message("sender email address for use in \"From\" field")
+    if sender_name.strip() == "" or sender_email.strip() == "":
+        return None
+    current_step += 1
+
+    # Get a name for this configuration
+    step_base(current_step)
+    name = _create_input_message("an arbitrary name for this server connection configuration")
+    if name.strip() == "":
+        name = f"Server Config {time.time()}"
+    current_step += 1
+
+    # Ask if the new config shall serve immediately as active config.
+    step_base(current_step)
+    active = _get_pseudo_bool_option(
+        "Shall the new configuration serve immediately as the active one?",
+        [("Yes.", True), ("No.", False)]
+    )
+    connection = ServerConnection(name, smtp_host, smtp_port, sender_name, sender_email, smtp_encryption, smtp_login,
+                                  imap_host, imap_port, imap_encryption, imap_login, share_login)
+    SLC.append(connection, active)
     return None
 
 
