@@ -92,9 +92,10 @@ if __name__ == "__main__":
             else:
                 current_command = parent.pop()
         else:
-            parent.append(current_command)
             current_command = next_command
         next_command = current_command()
+        if next_command is not None:
+            parent.append(current_command)
 
 """ currently not needed    
     parser: ArgumentParser = commandline.Parser()

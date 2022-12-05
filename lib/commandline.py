@@ -5,7 +5,7 @@ This file holds all the stuff needed for a command line UI for the bulk mailer p
 import argparse
 import platform
 import subprocess
-from typing import Any, List, Callable, Union
+from typing import Any, List, Callable, Union, Optional
 
 import lib
 
@@ -62,8 +62,8 @@ def clear_screen():
 
 def _print_menu(menu_name: str,
                 menu_options: list[str],
-                menu_actions: list[Callable[[], None]], *,
-                special_text: str = None) -> Callable[[], Union[Callable,None]]:
+                menu_actions: list[Optional[Callable[[], Union[Callable, None]]]], *,
+                special_text: str = None) -> Optional[Callable[[], Union[Callable, None]]]:
     """
     This function prints a menu and returns the choice of the user.
     :param menu_name: The name of the menu to print
@@ -83,7 +83,7 @@ You have the following options:
     else:
         print(special_text)
 
-    actions: dict[str, Callable[[], None]] = {}
+    actions: dict[str, Optional[Callable[[], Union[Callable, None]]]] = {}
     counter_width: int = len(str(len(menu_options)))
 
     for i, (option, action) in enumerate(zip(menu_options, menu_actions), 1):
@@ -103,8 +103,8 @@ def main_menu() -> Union[Callable[[], None], None]:
     This function shows the main menu.
     :return: A callable representing the action chosen in the main menu.
     """
-    name: str = "main menu"
-    options: list[str] = [
+    name = "main menu"
+    options = [
         "Manage Connections to mail servers",
         "Manage recipients list",
         "Manage email message",
@@ -113,7 +113,7 @@ def main_menu() -> Union[Callable[[], None], None]:
         "Reset the application",
         "Exit"
     ]
-    actions: list[Callable[[], Union[Callable, None]]] = [
+    actions = [
         manage_connections,
         manage_recipients,
         manage_message,
@@ -136,7 +136,7 @@ def manage_connections():
         "Add new server configuration",
         "Back to Main Menu"
     ]
-    actions = [lambda: None] * 3
+    actions = [None] * 3
     return _print_menu(name, options, actions)
 
 
@@ -154,7 +154,7 @@ def manage_recipients():
         "Clear recipients list",
         "Back to Main Menu"
     ]
-    actions = [lambda: None] * 6
+    actions = [None] * 6
     return _print_menu(name, options, actions)
 
 
@@ -171,7 +171,7 @@ def manage_message():
         "Clear message",
         "Back to Main Menu"
     ]
-    actions = [lambda: None] * 5
+    actions = [None] * 5
     return _print_menu(name, options, actions)
 
 
@@ -184,7 +184,7 @@ def get_status():
     options = [
         "Back to Main Menu"
     ]
-    actions = [lambda: None]
+    actions = [None]
     special_text = "Welcome to the status page."
     return _print_menu(name, options, actions, special_text=special_text)
 
@@ -199,7 +199,7 @@ def send_mail():
         "Yes",
         "No. Back to Main Menu."
     ]
-    actions = [lambda: None] * 2
+    actions = [None] * 2
     special_text = "Are you sure you want to send this email?"
     return _print_menu(name, options, actions, special_text=special_text)
 
@@ -212,9 +212,9 @@ def reset():
     name = ""
     options = [
         "Yes.",
-        " No. Back to Main Menu."
+        "No. Back to Main Menu."
     ]
-    actions = [lambda: None] * 2
+    actions = [None] * 2
     special_text = "Are you sure you want to delete everything within this application?"
     return _print_menu(name, options, actions, special_text=special_text)
 
