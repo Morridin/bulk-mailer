@@ -4,6 +4,10 @@ A small Python tool to easily send e-mails in bulk to a group of recipients with
 ## Modules used (dependencies).
 
 In order to keep things simple and the list of dependencies short, I'll try my best to only use standard lib modules.
+
+Currently used modules:
+* `argparser` to have a simple command line UI.
+
 Currently _planned_ for usage are 
 * the `email` module to handle the message itself,
 * the `smtplib` module to send messages,
