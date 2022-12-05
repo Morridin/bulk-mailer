@@ -15,7 +15,7 @@ class Encryption(Enum):
     This enum holds all available options for connection encryption.
     """
     SSL = 1
-    TLS = 2
+    STARTTLS = 2
 
 
 class ServerConnection:
