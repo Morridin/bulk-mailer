@@ -53,9 +53,6 @@ Wanted program flow:
     * Reset application
     * Exit
 """
-from argparse import ArgumentParser
-from smtplib import SMTP
-
 from lib import *
 
 
@@ -86,11 +83,14 @@ def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no
 
 
 if __name__ == "__main__":
+    commandline.main_menu()
+
+""" currently not needed    
     parser: ArgumentParser = commandline.Parser()
     args = parser.parse_args()
 
-    if args.verboose:
-        print("Activated verboose output.")
+    if args.verbose:
+        print("Activated verbose output.")
         print(args)
 
     host: str = input("SMTP server name ")
@@ -101,3 +101,4 @@ if __name__ == "__main__":
         if tls:
             answer = smtp.starttls()
             print(answer)
+"""
