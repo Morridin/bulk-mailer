@@ -86,6 +86,7 @@ if __name__ == "__main__":
     next_command = None
     parent = []
     while True:
+        # Chose the correct command to be the next current one.
         if next_command is None:
             if len(parent) == 0:
                 current_command = commandline.main_menu
@@ -93,7 +94,11 @@ if __name__ == "__main__":
                 current_command = parent.pop()
         else:
             current_command = next_command
+
+        # Execute that command and thus gather the next one.
         next_command = current_command()
+
+        # In case we don't want to go back in the menu hierarchy, save the last command for later.
         if next_command is not None:
             parent.append(current_command)
 
