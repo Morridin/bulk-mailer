@@ -4,6 +4,6 @@ This package contains all the mechanics of the whole project.
 """
 __version__ = "0.0.1"
 
-__all__ = ["commandline", "__version__"]
+__all__ = ["commandline", "__version__", "server_connections"]
 
 
