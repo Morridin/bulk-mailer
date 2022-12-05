@@ -5,7 +5,7 @@ This file holds all the stuff needed for a command line UI for the bulk mailer p
 import argparse
 import platform
 import subprocess
-from typing import Any, List, Callable
+from typing import Any, List, Callable, Union
 
 import lib
 
@@ -60,19 +60,29 @@ def clear_screen():
         subprocess.run(["clear_screen"])
 
 
-def _print_menu(menu_name: str, menu_options: list[str], menu_actions: list[Callable[[], None]]) -> Callable[[], None]:
+def _print_menu(menu_name: str,
+                menu_options: list[str],
+                menu_actions: list[Callable[[], None]], *,
+                special_text: str = None) -> Callable[[], Union[Callable,None]]:
     """
     This function prints a menu and returns the choice of the user.
     :param menu_name: The name of the menu to print
     :param menu_options: The options in the menu to print
-    :param menu_actions: The list of actions that correspond to the options in the menu.
+    :param menu_actions: The list of actions that correspond to
+    the options in the menu.
+    :param special_text: If the screen to show is no menu (or the "You are in menu X" text
+    doesn't fit), use this parameter to hand in your own text.
     :return: The chosen action
     """
     clear_screen()
     print(HEADLINE)
-    print(f"""You are currently in the {menu_name}.
+    if special_text is None:
+        print(f"""You are currently in the {menu_name}.
 You have the following options:
 """)
+    else:
+        print(special_text)
+
     actions: dict[str, Callable[[], None]] = {}
     counter_width: int = len(str(len(menu_options)))
 
@@ -88,10 +98,10 @@ You have the following options:
     return actions[choice]
 
 
-def main_menu():
+def main_menu() -> Union[Callable[[], None], None]:
     """
     This function shows the main menu.
-    :return: None
+    :return: A callable representing the action chosen in the main menu.
     """
     name: str = "main menu"
     options: list[str] = [
@@ -102,8 +112,8 @@ def main_menu():
         "Send an email using the message, setup and recipients according to the current application status",
         "Reset the application",
         "Exit"
-        ]
-    actions: list[Callable[[], None]] = [
+    ]
+    actions: list[Callable[[], Union[Callable, None]]] = [
         manage_connections,
         manage_recipients,
         manage_message,
@@ -112,63 +122,106 @@ def main_menu():
         reset,
         die
     ]
-    _print_menu(name, options, actions)()
+    return _print_menu(name, options, actions)
 
 
 def manage_connections():
     """
     Function to handle first main menu point
-    :return:
+    :return: A callable representing the action chosen in the mail server management menu.
     """
     name = "mail server connection management"
-    options = []
-    actions = []
-    _print_menu(name, options, actions)()
+    options = [
+        "View existing server configurations",
+        "Add new server configuration",
+        "Back to Main Menu"
+    ]
+    actions = [lambda: None] * 3
+    return _print_menu(name, options, actions)
 
 
 def manage_recipients():
     """
     Function to handle second main menu point
-    :return:
+    :return: A callable representing the action chosen in the recipients management menu.
     """
-    pass
+    name = "mail recipients management"
+    options = [
+        "View list of recipients",
+        "Add new recipient",
+        "Load recipients from file",
+        "Store recipients list into file",
+        "Clear recipients list",
+        "Back to Main Menu"
+    ]
+    actions = [lambda: None] * 6
+    return _print_menu(name, options, actions)
 
 
 def manage_message():
     """
     Function to handle third main menu point
-    :return:
+    :return: A callable representing the action chosen in the mail message setup menu.
     """
-    pass
+    name = "mail message setup"
+    options = [
+        "Write or modify a message here",
+        "Load message from file",
+        "Store message into file",
+        "Clear message",
+        "Back to Main Menu"
+    ]
+    actions = [lambda: None] * 5
+    return _print_menu(name, options, actions)
 
 
 def get_status():
     """
     Function to handle fourth main menu point
-    :return:
+    :return: A callable leading the application back to main menu.
     """
-    pass
+    name = ""
+    options = [
+        "Back to Main Menu"
+    ]
+    actions = [lambda: None]
+    special_text = "Welcome to the status page."
+    return _print_menu(name, options, actions, special_text=special_text)
 
 
 def send_mail():
     """
     Function to handle fifth main menu point
-    :return:
+    :return: A callable leading the application back to main menu.
     """
-    pass
+    name = ""
+    options = [
+        "Yes",
+        "No. Back to Main Menu."
+    ]
+    actions = [lambda: None] * 2
+    special_text = "Are you sure you want to send this email?"
+    return _print_menu(name, options, actions, special_text=special_text)
 
 
 def reset():
     """
     Function to handle sixth main menu point
-    :return:
+    :return: A callable leading the application back to main menu.
     """
-    pass
+    name = ""
+    options = [
+        "Yes.",
+        " No. Back to Main Menu."
+    ]
+    actions = [lambda: None] * 2
+    special_text = "Are you sure you want to delete everything within this application?"
+    return _print_menu(name, options, actions, special_text=special_text)
 
 
 def die():
     """
-    Function to handle seventh main menu point
+    Function to handle seventh main menu point (exit the application).
     :return: None.
     """
     exit(0)
