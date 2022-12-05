@@ -83,7 +83,18 @@ def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no
 
 
 if __name__ == "__main__":
-    commandline.main_menu()
+    next_command = None
+    parent = []
+    while True:
+        if next_command is None:
+            if len(parent) == 0:
+                current_command = commandline.main_menu
+            else:
+                current_command = parent.pop()
+        else:
+            parent.append(current_command)
+            current_command = next_command
+        next_command = current_command()
 
 """ currently not needed    
     parser: ArgumentParser = commandline.Parser()
