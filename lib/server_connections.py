@@ -35,7 +35,7 @@ class ServerConnection:
                  imap_port: int = None,
                  imap_encryption: bool | Encryption = False,
                  imap_login: bool = False,
-                 share_login=True,
+                 share_login: bool = True,
                  smtp_credentials: tuple[str, str] = None,
                  imap_credentials: tuple[str, str] = None):
         if smtp_credentials is not None or imap_credentials is not None:
