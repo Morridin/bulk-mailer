@@ -136,8 +136,28 @@ def manage_connections():
         "Add new server configuration",
         "Back to Main Menu"
     ]
-    actions = [None] * 3
+    actions = [
+        view_server_list,
+        add_server,
+        None
+    ]
     return _print_menu(name, options, actions)
+
+
+def view_server_list():
+    """
+    This function displays a list of the existing server configurations.
+    :return:
+    """
+    return None
+
+
+def add_server():
+    """
+    This function provides the ui to add a new server configuration.
+    :return:
+    """
+    return None
 
 
 def manage_recipients():
