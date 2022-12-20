@@ -15,7 +15,7 @@ class UI(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def init(self) -> None:
+    def init(self, **kwargs) -> None:
         """
         This method is used to set up a user interface upon application start.
         """
