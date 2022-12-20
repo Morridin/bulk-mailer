@@ -11,49 +11,68 @@ from typing import Any, Callable, Union, Optional
 import lib
 from lib.server_connections import Encryption, ServerConnection, ServerConnectionList
 
-HEADLINE = f"Bulk Mailer v{lib.__version__}"
-SLC = ServerConnectionList()
 
+SCL = ServerConnectionList()
 
-class Parser(argparse.ArgumentParser):
+class CommandLine(lib.UI):
     """
-    This is a subclass that contains already some fixed configurations for this program.
+    This class bundles the interactive command line user interface.
     """
+    headline = f"Bulk Mailer v{lib.__version__}"
 
     def __init__(self):
-        super().__init__(prog="bulk-mailer",
-                         description="Send emails based on files to many recipients. All options can be set in config "
-                                     "file and are thus optional.",
-                         allow_abbrev=False
-                         )
-        self.add_argument("-m", "--message_file",
-                          help="The path to a file containing an email message to send.")
-        self.add_argument("-r", "--recipient",
-                          action="extend",
-                          nargs="+",
-                          help="Adds a recipient to the message per call."
-                          )
+        self.command_stack: list[Callable] = [] # A stack containing the last menus called
+        self.next_command: Optional[Callable] = None
+    def init(self) -> None:
+        """
+        Starts the interactive command line application.
+        """
+        while True:
+            # Chose the correct command to be the next current one.
+            if self.next_command is None:
+                if len(self.command_stack) == 0:
+                    current_command = main_menu
+                else:
+                    current_command = self.command_stack.pop()
+            else:
+                current_command = self.next_command
 
-        self.add_argument("-rf", "--recipients_file",
-                          help="The path to a file containing a list of recipients. If both r and rf are existent, "
-                               "the recipients in the file in rf are simply appended to those in r.")
-        self.add_argument("-c", "--config",
-                          nargs="?",
-                          default=argparse.SUPPRESS,
-                          metavar="Key=Value",
-                          help="Show config file, if no key/value pair is given, else set that key/value pair."
-                          )
-        self.add_argument("-v", "--verbose",
-                          action="store_true",
-                          help="Show more detailed output.")
-        self.add_argument("-V", "--version",
-                          action="version",
-                          help="Show version information.",
-                          version="Bulk Mailer 0.0"
-                          )
+            # Execute that command and thus gather the next one.
+            self.next_command = current_command()
+
+            # In case we don't want to go back in the menu hierarchy, save the last command for later.
+            if self.next_command is not None:
+                self.command_stack.append(current_command)
 
 
-def clear_screen():
+def main_menu() -> Union[Callable[[], None], None]:
+    """
+    This function shows the main menu.
+    :return: A callable representing the action chosen in the main menu.
+    """
+    name = "main menu"
+    options = [
+        "Manage Connections to mail servers",
+        "Manage recipients list",
+        "Manage email message",
+        "Get current application status",
+        "Send an email using the message, setup and recipients according to the current application status",
+        "Reset the application",
+        "Exit"
+    ]
+    actions = [
+        manage_connections,
+        manage_recipients,
+        manage_message,
+        get_status,
+        send_mail,
+        reset,
+        die
+    ]
+    return _print_menu(name, options, actions)
+
+
+def _clear_screen():
     """
     This function clears the console screen.
     """
@@ -101,31 +120,7 @@ You have the following options:
     return actions[choice]
 
 
-def main_menu() -> Union[Callable[[], None], None]:
-    """
-    This function shows the main menu.
-    :return: A callable representing the action chosen in the main menu.
-    """
-    name = "main menu"
-    options = [
-        "Manage Connections to mail servers",
-        "Manage recipients list",
-        "Manage email message",
-        "Get current application status",
-        "Send an email using the message, setup and recipients according to the current application status",
-        "Reset the application",
-        "Exit"
-    ]
-    actions = [
-        manage_connections,
-        manage_recipients,
-        manage_message,
-        get_status,
-        send_mail,
-        reset,
-        die
-    ]
-    return _print_menu(name, options, actions)
+
 
 
 def manage_connections():
@@ -328,7 +323,7 @@ def add_server():
     )
     connection = ServerConnection(name, smtp_host, smtp_port, sender_name, sender_email, smtp_encryption, smtp_login,
                                   imap_host, imap_port, imap_encryption, imap_login, share_login)
-    SLC.append(connection, active)
+    SCL.append(connection, active)
     return None
 
 
@@ -411,9 +406,42 @@ def reset():
     return _print_menu(name, options, actions, special_text=special_text)
 
 
-def die():
+
+
+
+class Parser(argparse.ArgumentParser):
     """
-    Function to handle seventh main menu point (exit the application).
-    :return: None.
+    This is a subclass that contains already some fixed configurations for this program.
     """
-    exit(0)
+
+    def __init__(self):
+        super().__init__(prog="bulk-mailer",
+                         description="Send emails based on files to many recipients. All options can be set in config "
+                                     "file and are thus optional.",
+                         allow_abbrev=False
+                         )
+        self.add_argument("-m", "--message_file",
+                          help="The path to a file containing an email message to send.")
+        self.add_argument("-r", "--recipient",
+                          action="extend",
+                          nargs="+",
+                          help="Adds a recipient to the message per call."
+                          )
+
+        self.add_argument("-rf", "--recipients_file",
+                          help="The path to a file containing a list of recipients. If both r and rf are existent, "
+                               "the recipients in the file in rf are simply appended to those in r.")
+        self.add_argument("-c", "--config",
+                          nargs="?",
+                          default=argparse.SUPPRESS,
+                          metavar="Key=Value",
+                          help="Show config file, if no key/value pair is given, else set that key/value pair."
+                          )
+        self.add_argument("-v", "--verbose",
+                          action="store_true",
+                          help="Show more detailed output.")
+        self.add_argument("-V", "--version",
+                          action="version",
+                          help="Show version information.",
+                          version="Bulk Mailer 0.0"
+                          )

@@ -40,13 +40,13 @@ Wanted program flow:
             1. Enter recipient name
             2. Enter recipient address
             3. More e-mail addresses for this recipient?
-        * Load from file
-        * Store into file
+        * Load from file (later)
+        * Store into file (later)
         * Clear ("Are you sure?")
     * Set up email message (either by writing it directly in the program or by importing a file containing the message)
-        * Write here/modify
+        * Write here/modify (later)
         * Load from file
-        * Store into file
+        * Store into file (later)
         * Clear
     * Get status (show current email message, recipients, selected server setup)
     * Send email to recipients => show overview of action about to be started and let user confirm this.
@@ -54,6 +54,7 @@ Wanted program flow:
     * Exit
 """
 from lib import *
+from lib.commandline import CommandLine
 
 
 def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no valid number.",
@@ -83,24 +84,8 @@ def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no
 
 
 if __name__ == "__main__":
-    next_command = None
-    parent = []
-    while True:
-        # Chose the correct command to be the next current one.
-        if next_command is None:
-            if len(parent) == 0:
-                current_command = commandline.main_menu
-            else:
-                current_command = parent.pop()
-        else:
-            current_command = next_command
-
-        # Execute that command and thus gather the next one.
-        next_command = current_command()
-
-        # In case we don't want to go back in the menu hierarchy, save the last command for later.
-        if next_command is not None:
-            parent.append(current_command)
+    interface = CommandLine()
+    engine.init(interface)
 
 """ currently not needed    
     parser: ArgumentParser = commandline.Parser()
