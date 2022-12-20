@@ -9,6 +9,8 @@ As I regard using IMAP rather as a convenience feature than a required feature, 
 """
 from enum import Enum
 
+from lib.recipients import Recipient
+
 
 class Encryption(Enum):
     """
@@ -55,7 +57,7 @@ class ServerConnection:
             "credentials": None
         }
         self.share_login = share_login
-        self.sender = F"{sender_name} <{sender_email}>"
+        self.sender = Recipient(sender_name, sender_email)
         self.name = name
 
 
@@ -112,3 +114,8 @@ class ServerConnectionList:
         if as_active:
             self.active = len(self.connections)
         self.connections.append(new_item)
+
+
+class ServerConnectionManagement:
+    def add_new_entry(self, new_entry, active):
+        pass
