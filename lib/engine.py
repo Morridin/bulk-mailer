@@ -1,12 +1,15 @@
 # coding=utf-8
 """
-This file provides is the interface between the user interface and the program routines behind.
+This file provides the interface between the user interface and the program routines behind.
 """
 from typing import Any
 
 from lib import UI
-from lib.recipients import RecipientsList, Recipient
-from lib.server_connections import ServerConnectionList, ServerConnection
+from lib.recipients import RecipientsList, Recipient, RecipientManagement
+from lib.server_connections import ServerConnectionList, ServerConnection, ServerConnectionManagement
+
+SCM: ServerConnectionManagement = ServerConnectionManagement()
+RM: RecipientManagement = RecipientManagement()
 
 
 def init(interface: UI) -> None:
@@ -34,8 +37,7 @@ def server_connections_add_new(new_entry: ServerConnection, active: bool) -> Non
     :param active: Tells the program to set this ServerConnection as the active one.
     :return: None
     """
-    _ = (new_entry, active)
-    raise NotImplementedError()
+    SCM.add_new_entry(new_entry, active)
 
 
 def recipients_get_list() -> RecipientsList:
