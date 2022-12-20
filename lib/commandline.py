@@ -9,10 +9,9 @@ import time
 from typing import Any, Callable, Union, Optional
 
 import lib
-from lib.server_connections import Encryption, ServerConnection, ServerConnectionList
-
-
-SCL = ServerConnectionList()
+from lib import engine
+from lib.engine import die
+from lib.server_connections import Encryption, ServerConnection
 
 class CommandLine(lib.UI):
     """
@@ -21,8 +20,9 @@ class CommandLine(lib.UI):
     headline = f"Bulk Mailer v{lib.__version__}"
 
     def __init__(self):
-        self.command_stack: list[Callable] = [] # A stack containing the last menus called
+        self.command_stack: list[Callable] = []  # A stack containing the last menus called
         self.next_command: Optional[Callable] = None
+
     def init(self) -> None:
         """
         Starts the interactive command line application.
@@ -96,12 +96,11 @@ def _print_menu(menu_name: str,
     doesn't fit), use this parameter to hand in your own text.
     :return: The chosen action
     """
-    clear_screen()
-    print(HEADLINE)
+    input_text: str = "the number of the action you want to perform"
+    _clear_screen()
+    print(CommandLine.headline)
     if special_text is None:
-        print(f"""You are currently in the {menu_name}.
-You have the following options:
-""")
+        print(f"You are currently in the {menu_name}.\nYou have the following options:\n")
     else:
         print(special_text)
 
@@ -112,15 +111,35 @@ You have the following options:
         print(f"{i:>{counter_width}}. {option}")
         actions[f"{i}"] = action
 
-    choice = input("\nPlease enter the number of the action you want to perform: ")
+    print("")
+    choice = _create_input_message(input_text)
     while choice not in actions:
         print("This is not a valid option!")
-        choice = input("Please enter the number of the action you want to perform: ")
+        choice = _create_input_message(input_text)
 
     return actions[choice]
 
 
+def _create_input_message(item: str) -> str:
+    """
+    This function adds the value in item into a standard "Please enter X" input prompt and returns the input result.
+    :param item: A textual description of what is expected.
+    :return: The input of the user.
+    """
+    return input(f"Please enter {item}: ")
 
+
+def _is_int(s: str) -> int:
+    """
+    This function is a dirty approach to test, if a string can be converted into an int.
+    :param s: the str object to be tested for transferability to int.
+    :return: True, if s can be converted to int, False otherwise.
+    """
+    try:
+        _ = int(s)
+    except ValueError:
+        return False
+    return True
 
 
 def manage_connections():
@@ -150,28 +169,6 @@ def view_server_list():
     return None
 
 
-def _create_input_message(item: str) -> str:
-    """
-    This function adds the value in item into a standard "Please enter X" input prompt and returns the input result.
-    :param item: A textual description of what is expected.
-    :return: The input of the user.
-    """
-    return input(f"Please enter {item}: ")
-
-
-def is_int(s: str) -> int:
-    """
-    This function is a dirty approach to test, if a string can be converted into an int.
-    :param s: the str object to be tested for transferability to int.
-    :return: True, if s can be converted to int, False otherwise.
-    """
-    try:
-        _ = int(s)
-    except ValueError:
-        return False
-    return True
-
-
 def add_server():
     """
     This function provides the ui to add a new server configuration.
@@ -185,8 +182,8 @@ def add_server():
         This subfunction creates for every step of the process a clean screen and shows some basic information.
         :param i: the number of the current step.
         """
-        clear_screen()
-        print(HEADLINE)
+        _clear_screen()
+        print(CommandLine.headline)
         print(f"You are currently creating a new mail server connection configuration.\nStep {i} of {num_steps}\n")
 
     def _get_port(server_type: str) -> int | None:
@@ -197,7 +194,7 @@ def add_server():
         :return: the port number, if a valid one was entered by the user. None otherwise.
         """
         port: str = _create_input_message(f"{server_type} server port number")
-        if is_int(port):
+        if _is_int(port):
             out: int = int(port)
             if out > 0:
                 return out
@@ -214,16 +211,22 @@ def add_server():
         :param options: A list consisting of tuples consisting of the displayed answers and their associated values.
         :return: the value of the selected option.
         """
+        input_text: str = "the number of the best fitting option"
         print(f"{question_text}\n")
+
         counter_width: int = len(str(len(options)))
         values: dict[str, Any] = {}
+
         for i, (option, value) in enumerate(options, 1):
             print(f"{i:>{counter_width}}. {option}")
             values[f"{i}"] = value
-        choice = input("\nPlease enter the number of the best fitting option: ")
+
+        print("")
+        choice = _create_input_message(input_text)
         while choice not in values:
             print("This is not a valid option!")
-            choice = input("Please enter the number of the best fitting option: ")
+            choice = _create_input_message(input_text)
+
         return values[choice]
 
     # Get SMTP host name
@@ -323,7 +326,7 @@ def add_server():
     )
     connection = ServerConnection(name, smtp_host, smtp_port, sender_name, sender_email, smtp_encryption, smtp_login,
                                   imap_host, imap_port, imap_encryption, imap_login, share_login)
-    SCL.append(connection, active)
+    engine.server_connections_add_new(connection, active)
     return None
 
 
@@ -406,9 +409,6 @@ def reset():
     return _print_menu(name, options, actions, special_text=special_text)
 
 
-
-
-
 class Parser(argparse.ArgumentParser):
     """
     This is a subclass that contains already some fixed configurations for this program.
@@ -443,5 +443,5 @@ class Parser(argparse.ArgumentParser):
         self.add_argument("-V", "--version",
                           action="version",
                           help="Show version information.",
-                          version="Bulk Mailer 0.0"
+                          version=CommandLine.headline
                           )
