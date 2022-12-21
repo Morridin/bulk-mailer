@@ -8,6 +8,7 @@ with a full mailbox.
 As I regard using IMAP rather as a convenience feature than a required feature, IMAP will be added later.
 """
 from enum import Enum
+from typing import Optional
 
 from lib.recipients import Recipient
 
@@ -73,11 +74,12 @@ class ServerConnectionList:
     def __len__(self):
         return len(self.connections)
 
-    def delete(self, i):
+    def delete(self, i: int) -> ServerConnection:
         """
         Removes the element with index i from the ConnectionList. This is opposite to the not implemented method remove,
         which goes for the element to remove as the parameter.
         :param i: The index of the element in the ConnectionList to be removed. Must be in range  [0, len(list))
+        :return: The ServerConnection removed from the list.
         """
         if 0 <= i < len(self):
             if i == self.active:
@@ -112,5 +114,18 @@ class ServerConnectionList:
         :return: None.
         """
         if as_active:
-            self.active = len(self.connections)
+            self.active = len(self)
         self.connections.append(new_item)
+
+    def get_active(self) -> Optional[ServerConnection]:
+        """
+        This method gathers the currently active server connection.
+        If there is none, regardless of reason, it returns None.
+        :return: The list element currently marked as active, None if there is no such element.
+        """
+        if self.active > -1:
+            return self.connections[self.active]
+        return None
+        # if len(self) == 0:
+        #     raise ValueError("This server connection list is empty!")
+        # raise ValueError("No active connection!")
