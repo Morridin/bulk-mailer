@@ -44,7 +44,3 @@ class Recipient(RecipientsListEntry):
         for address in self.addresses:
             out.append(f"{self.name} <{address}>")
         return tuple(out)
-
-
-class RecipientManagement:
-    pass

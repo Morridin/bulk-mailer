@@ -114,8 +114,3 @@ class ServerConnectionList:
         if as_active:
             self.active = len(self.connections)
         self.connections.append(new_item)
-
-
-class ServerConnectionManagement:
-    def add_new_entry(self, new_entry, active):
-        pass
