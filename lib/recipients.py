@@ -2,26 +2,10 @@
 """
 This class contains all stuff regarding recipient handling.
 """
-from abc import ABCMeta
-
-
-class RecipientsListEntry(metaclass=ABCMeta):
-    """
-    This is an abstract class defining an entry for the compound class RecipientsList.
-    """
-    pass
-
-
-class RecipientsList(RecipientsListEntry):
-    """
-    This class is basically a list wrapper with specialized functions regarding the handling of its entries.
-    """
-    pass
-
-
-class Recipient(RecipientsListEntry):
+class Recipient:
     """
     This class models an email recipient contained in a RecipientsList.
+    Important note: The __str__ method only returns the first e-mail entered for each recipient!
     """
     def __init__(self, name: str, *email: str):
         self.name: str = name
@@ -44,3 +28,30 @@ class Recipient(RecipientsListEntry):
         for address in self.addresses:
             out.append(f"{self.name} <{address}>")
         return tuple(out)
+
+    def __str__(self) -> str:
+        return f"{self.name} <{self.addresses[0]}>"
+
+
+class RecipientsList:
+    """
+    This class is basically a list wrapper with specialized functions regarding the handling of its entries.
+    """
+    def __init__(self):
+        self.recipients: list[Recipient] = []
+
+    def __len__(self) -> int:
+        return len(self.recipients)
+
+
+    def __getitem__(self, item: int) -> Recipient:
+        return self.recipients[item]
+
+    def append(self, item: Recipient) -> None:
+        """
+        This method adds a new element to the end of the list.
+        :param item: The new list item.
+        :return: None
+        """
+        self.recipients.append(item)
+
