@@ -54,7 +54,7 @@ Wanted program flow:
     * Exit
 """
 from lib import *
-from lib.commandline import CommandLine
+from lib.ui.commandline import CommandLine
 
 
 def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no valid number.",
