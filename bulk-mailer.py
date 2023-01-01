@@ -86,21 +86,3 @@ def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no
 if __name__ == "__main__":
     interface = CommandLine()
     engine.init(interface)
-
-""" currently not needed    
-    parser: ArgumentParser = commandline.Parser()
-    args = parser.parse_args()
-
-    if args.verbose:
-        print("Activated verbose output.")
-        print(args)
-
-    host: str = input("SMTP server name ")
-    port: int = get_int(input_text="SMTP server port ", error_text="Illegal Value for SMTP server port!")
-    tls: bool = True
-
-    with SMTP(host, port) as smtp:
-        if tls:
-            answer = smtp.starttls()
-            print(answer)
-"""
