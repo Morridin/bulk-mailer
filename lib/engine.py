@@ -49,7 +49,7 @@ def server_connections_get_list() -> ServerConnectionList:
 def server_connections_add_new(new_entry: ServerConnection, active: bool) -> None:
     """
     This function provides a direct way to add a new entry to the ServerConnectionList object the program holds without
-    the need for the UI to get the list in before.
+    the need for the ui to get the list in before.
     :param new_entry: The ServerConnection object that is to be added.
     :param active: Tells the program to set this ServerConnection as the active one.
     :return: None

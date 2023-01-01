@@ -1,6 +1,6 @@
 # coding=utf-8
 """
-This file holds all the stuff needed for a command line UI for the bulk mailer program.
+This file holds all the stuff needed for a command line ui for the bulk mailer program.
 """
 import argparse
 import platform
