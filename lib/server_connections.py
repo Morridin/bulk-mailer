@@ -8,6 +8,7 @@ with a full mailbox.
 As I regard using IMAP rather as a convenience feature than a required feature, IMAP will be added later.
 """
 from enum import Enum
+from smtplib import SMTP, SMTP_SSL
 from typing import Optional
 
 from lib.recipients import Recipient
@@ -60,6 +61,18 @@ class ServerConnection:
         self.share_login = share_login
         self.sender = Recipient(sender_name, sender_email)
         self.name = name
+
+    def get_smtp(self) -> SMTP:
+        """
+        This method returns an object representing an open connection to an SMTP server.
+        If the encryption type of SMTP is set as SSL, the returned object is an SMTP_SSL object
+        :return: An SMTP object representing the connection to the server.
+        """
+        host = self.smtp["host"]
+        port = self.smtp["port"]
+        if self.smtp["encryption"] == Encryption.SSL:
+            return SMTP_SSL(host, port)
+        return SMTP(host, port)
 
 
 class ServerConnectionList:
@@ -126,6 +139,3 @@ class ServerConnectionList:
         if self.active > -1:
             return self.connections[self.active]
         return None
-        # if len(self) == 0:
-        #     raise ValueError("This server connection list is empty!")
-        # raise ValueError("No active connection!")
