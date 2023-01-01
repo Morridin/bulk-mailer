@@ -2,7 +2,7 @@
 """
 This package contains all the mechanics of the whole project.
 """
-__version__ = "0.0.1"
+__version__ = "0.0.0"
 
 __all__ = ["commandline", "__version__", "server_connections", "recipients", "engine", "UI"]
 
