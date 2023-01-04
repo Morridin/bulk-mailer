@@ -53,35 +53,8 @@ Wanted program flow:
     * Reset application
     * Exit
 """
-from lib import *
+from lib import engine
 from lib.ui.commandline import CommandLine
-
-
-def get_int(*, input_text: str = "Enter number ", error_text: str = "Input is no valid number.",
-            success_text: str = None, retry_text: str = "Retry? (y/n) ") -> int:
-    """
-    This function offers a way to safely get a number out of keyboard input.
-    @param input_text: A message displayed on the input prompt
-    @param error_text: A message displayed, when the input value is not a valid number
-    @param success_text: An optional message displayed when the input was a valid number.
-    @param retry_text: A message displayed upon erroneous input in order to restart the input.
-    @return: The input int value, if any.
-    """
-    number_raw: str = input(input_text)
-    try:
-        number = int(number_raw)
-    except ValueError:
-        print(error_text)
-        retry: str = input(retry_text)
-        if retry.casefold() == "y".casefold():
-            return get_int(input_text=input_text, error_text=error_text, success_text=success_text,
-                           retry_text=retry_text)
-        else:
-            raise IOError()
-    if success_text is not None:
-        print(success_text)
-    return number
-
 
 if __name__ == "__main__":
     interface = CommandLine()
