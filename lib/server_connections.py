@@ -84,8 +84,11 @@ class ServerConnectionList:
         self.connections: list[ServerConnection] = []
         self.active: int = -1
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.connections)
+
+    def __contains__(self, item: ServerConnection) -> bool:
+        return item in self.connections
 
     def delete(self, i: int) -> ServerConnection:
         """
