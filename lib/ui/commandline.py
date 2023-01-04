@@ -6,14 +6,17 @@ import argparse
 import platform
 import subprocess
 import time
-from typing import Any, Callable, Union, Optional
+from getpass import getpass
+from typing import Any, Callable, Union, Optional, Sequence
 
 import lib
 from lib import engine
-from lib.engine import die
-from lib.server_connections import Encryption, ServerConnection
+from lib.recipients import Recipient
+from lib.server_connections import Encryption, ServerConnection, ServerConnectionList
+from lib.ui import UI
 
-class CommandLine(lib.UI):
+
+class CommandLine(UI):
     """
     This class bundles the interactive command line user interface.
     """
@@ -45,33 +48,6 @@ class CommandLine(lib.UI):
                 self.command_stack.append(current_command)
 
 
-def main_menu() -> Union[Callable[[], None], None]:
-    """
-    This function shows the main menu.
-    :return: A callable representing the action chosen in the main menu.
-    """
-    name = "main menu"
-    options = [
-        "Manage Connections to mail servers",
-        "Manage recipients list",
-        "Manage email message",
-        "Get current application status",
-        "Send an email using the message, setup and recipients according to the current application status",
-        "Reset the application",
-        "Exit"
-    ]
-    actions = [
-        manage_connections,
-        manage_recipients,
-        manage_message,
-        get_status,
-        send_mail,
-        reset,
-        die
-    ]
-    return _print_menu(name, options, actions)
-
-
 def _clear_screen():
     """
     This function clears the console screen.
@@ -80,12 +56,23 @@ def _clear_screen():
         subprocess.run(["cls"], shell=True)
     else:
         subprocess.run(["clear_screen"])
+    print(CommandLine.headline)
+
+
+def _create_input_message(item: str) -> str:
+    """
+    This function adds the value in item into a standard "Please enter X" input prompt and returns the input result.
+    :param item: A textual description of what is expected.
+    :return: The input of the user.
+    """
+    return input(f"Please enter {item}: ")
 
 
 def _print_menu(menu_name: str,
-                menu_options: list[str],
-                menu_actions: list[Optional[Callable[[], Union[Callable, None]]]], *,
-                special_text: str = None) -> Optional[Callable[[], Union[Callable, None]]]:
+                menu_options: Sequence[str],
+                menu_actions: Sequence[Optional[Callable[[], Union[Callable, None]]]], *,
+                special_text: str = None,
+                input_text: str = None) -> Optional[Callable[[], Union[Callable, None]]]:
     """
     This function prints a menu and returns the choice of the user.
     :param menu_name: The name of the menu to print
@@ -94,11 +81,12 @@ def _print_menu(menu_name: str,
     the options in the menu.
     :param special_text: If the screen to show is no menu (or the "You are in menu X" text
     doesn't fit), use this parameter to hand in your own text.
+    :param input_text: If you want to enter a different input message, use this keyword-argument.
     :return: The chosen action
     """
-    input_text: str = "the number of the action you want to perform"
+    if input_text is None:
+        input_text = "the number of the action you want to perform"
     _clear_screen()
-    print(CommandLine.headline)
     if special_text is None:
         print(f"You are currently in the {menu_name}.\nYou have the following options:\n")
     else:
@@ -120,15 +108,6 @@ def _print_menu(menu_name: str,
     return actions[choice]
 
 
-def _create_input_message(item: str) -> str:
-    """
-    This function adds the value in item into a standard "Please enter X" input prompt and returns the input result.
-    :param item: A textual description of what is expected.
-    :return: The input of the user.
-    """
-    return input(f"Please enter {item}: ")
-
-
 def _is_int(s: str) -> int:
     """
     This function is a dirty approach to test, if a string can be converted into an int.
@@ -142,7 +121,62 @@ def _is_int(s: str) -> int:
     return True
 
 
-def manage_connections():
+def _get_pseudo_bool_option(question_text: str, options: Sequence[tuple[str, Any]]) -> Any:
+    """
+    This function asks the user a question and presents a set of answer options.
+    It returns the value of the selected option.
+    Attention: This function does not clear the screen!
+    :param question_text: The text of the question to ask the user.
+    :param options: A list consisting of tuples consisting of the displayed answers and their associated values.
+    :return: the value of the selected option.
+    """
+    input_text: str = "the number of the best fitting option"
+    print(f"{question_text}\n")
+
+    counter_width: int = len(str(len(options)))
+    values: dict[str, Any] = {}
+
+    for i, (option, value) in enumerate(options, 1):
+        print(f"{i:>{counter_width}}. {option}")
+        values[f"{i}"] = value
+
+    print("")
+    choice = _create_input_message(input_text)
+    while choice not in values:
+        print("This is not a valid option!")
+        choice = _create_input_message(input_text)
+
+    return values[choice]
+
+
+def main_menu() -> Union[Callable[[], None], None]:
+    """
+    This function shows the main menu.
+    :return: A callable representing the action chosen in the main menu.
+    """
+    name = "main menu"
+    options = [
+        "Manage Connections to mail servers",
+        "Manage recipients list",
+        "Manage email message",
+        "Get current application status",
+        "Send an email using the message, setup and recipients according to the current application status",
+        "Reset the application",
+        "Exit"
+    ]
+    actions = [
+        server_manage,
+        recipient_manage,
+        message_manage,
+        status_get,
+        message_send,
+        reset,
+        engine.die
+    ]
+    return _print_menu(name, options, actions)
+
+
+def server_manage():
     """
     Function to handle first main menu point
     :return: A callable representing the action chosen in the mail server management menu.
@@ -154,22 +188,67 @@ def manage_connections():
         "Back to Main Menu"
     ]
     actions = [
-        view_server_list,
-        add_server,
+        server_view_list,
+        server_add,
         None
     ]
     return _print_menu(name, options, actions)
 
 
-def view_server_list():
+def _server_edit(server_list: ServerConnectionList, server: ServerConnection) -> None:
+    """
+    This inline function creates the editing menu for a server connections list entry
+    :param server_list: The server list in which server resides (for purpose of deletion)
+    :param server: The server to be edited.
+    :return: None
+    """
+    if server not in server_list:
+        return
+
+
+def server_view_list():
     """
     This function displays a list of the existing server configurations.
-    :return:
+    :return: None.
     """
-    return None
+
+    server_list = engine.server_connections_get_list()
+    # List format:
+    # 1. [Active] <Name>
+    #        <smtp-host>:<smtp-name>, <encryption>
+    #        <imap-host>:<imap-name>, <encryption>
+    # 2. <Name>
+    #        ...
+    name = "server connections list"
+    special_text = f"You are currently viewing the {name}.\nBy entering the number of one of the " \
+                   f"entries, you choose this entry to perform changes to it.\nEditing is currently not supported and " \
+                   f"results in return to main menu.\n"
+    input_text = f"the number of the server you want to edit or {len(server_list) + 1} to exit this view"
+    options: list[str] = []
+    actions: list[Optional[Callable]] = []
+
+    for server in server_list:
+        option: str = f""
+        if server == server_list.get_active():
+            option += f"[Active] "
+        option += f"{server.name}\n"
+        option += f"\t{server.smtp['host']}:{server.smtp['port']}"
+        if server.smtp["encryption"] is not False:
+            option += f", {server.smtp['encryption'].name}"
+        option += f"\n\t{server.imap['host']}:{server.imap['port']}"
+        if server.imap["encryption"] is not False:
+            option += f", {server.imap['encryption'].name}"
+        options.append(option)
+        # actions.append(lambda: _server_edit(server_list, server))
+        actions.append(None)
+        # TODO: implement the context menu function and remove the hint from list heading!
+
+    options.append("Back to server connections management")
+    actions.append(None)
+    return _print_menu(name, options, actions, special_text=special_text, input_text=input_text)
 
 
-def add_server():
+def server_add():
     """
     This function provides the ui to add a new server configuration.
     :return:
@@ -177,13 +256,12 @@ def add_server():
     num_steps = 11
     current_step = 1
 
-    def step_base(i: int) -> None:
+    def _step_base(i: int) -> None:
         """
         This subfunction creates for every step of the process a clean screen and shows some basic information.
         :param i: the number of the current step.
         """
         _clear_screen()
-        print(CommandLine.headline)
         print(f"You are currently creating a new mail server connection configuration.\nStep {i} of {num_steps}\n")
 
     def _get_port(server_type: str) -> int | None:
@@ -203,48 +281,22 @@ def add_server():
             return None
         return _get_port(server_type)
 
-    def _get_pseudo_bool_option(question_text: str, options: list[tuple[str, Any]]) -> Any:
-        """
-        This subfunction asks the user a question and presents a set of answer options.
-        It returns the value of the selected option.
-        :param question_text: The text of the question to ask the user.
-        :param options: A list consisting of tuples consisting of the displayed answers and their associated values.
-        :return: the value of the selected option.
-        """
-        input_text: str = "the number of the best fitting option"
-        print(f"{question_text}\n")
-
-        counter_width: int = len(str(len(options)))
-        values: dict[str, Any] = {}
-
-        for i, (option, value) in enumerate(options, 1):
-            print(f"{i:>{counter_width}}. {option}")
-            values[f"{i}"] = value
-
-        print("")
-        choice = _create_input_message(input_text)
-        while choice not in values:
-            print("This is not a valid option!")
-            choice = _create_input_message(input_text)
-
-        return values[choice]
-
     # Get SMTP host name
-    step_base(current_step)
+    _step_base(current_step)
     smtp_host = _create_input_message("SMTP server host name")
     if smtp_host.strip() == "":
         return None
     current_step += 1
 
     # Get SMTP port number
-    step_base(current_step)
+    _step_base(current_step)
     smtp_port = _get_port("SMTP")
     if smtp_port is None:
         return None
     current_step += 1
 
     # Ask if the SMTP server needs encryption, and if so, which one.
-    step_base(current_step)
+    _step_base(current_step)
     smtp_encryption = _get_pseudo_bool_option(
         "Does the SMTP server connection need to be encrypted?",
         [("No.", False), ("Yes, with SSL.", Encryption.SSL), ("Yes, with STARTTLS.", Encryption.STARTTLS)]
@@ -252,7 +304,7 @@ def add_server():
     current_step += 1
 
     # Ask if the user needs to authenticate at the SMTP server.
-    step_base(current_step)
+    _step_base(current_step)
     smtp_login = _get_pseudo_bool_option(
         "Do you need to authenticate on the SMTP server in order to send mails?",
         [("Yes. [Credentials will be prompted on email sending]", True), ("No.", False)]
@@ -260,21 +312,21 @@ def add_server():
     current_step += 1
 
     # Get IMAP host name
-    step_base(current_step)
+    _step_base(current_step)
     imap_host = _create_input_message("IMAP server host name")
     if imap_host.strip() == "":
         return None
     current_step += 1
 
     # Get IMAP port number
-    step_base(current_step)
+    _step_base(current_step)
     imap_port = _get_port("IMAP")
     if imap_port is None:
         return None
     current_step += 1
 
     # Ask if the IMAP server needs encryption, and if so, which one.
-    step_base(current_step)
+    _step_base(current_step)
     imap_encryption = _get_pseudo_bool_option(
         "Does the IMAP server connection need to be encrypted?",
         [("No.", False), ("Yes, with SSL.", Encryption.SSL), ("Yes, with STARTTLS.", Encryption.STARTTLS)]
@@ -282,7 +334,7 @@ def add_server():
     current_step += 1
 
     # Ask if the user needs to authenticate at the IMAP server.
-    step_base(current_step)
+    _step_base(current_step)
     imap_login = _get_pseudo_bool_option(
         "Do you need to authenticate on the IMAP server?",
         [("Yes. [Credentials will be prompted on email sending]", True), ("No.", False)]
@@ -293,7 +345,7 @@ def add_server():
     share_login: bool
     if smtp_login and imap_login:
         num_steps += 1
-        step_base(current_step)
+        _step_base(current_step)
         share_login = _get_pseudo_bool_option(
             "Do you use the same the same authentication credentials for SMTP server as for IMAP server?",
             [("Yes", True), ("No", False)]
@@ -304,7 +356,7 @@ def add_server():
 
     # Ask the user for its name for display as sender name
     # Ask the user for its email address for use in "From" field.
-    step_base(current_step)
+    _step_base(current_step)
     sender_name = _create_input_message("sender name for display in \"From\" field")
     sender_email = _create_input_message("sender email address for use in \"From\" field")
     if sender_name.strip() == "" or sender_email.strip() == "":
@@ -312,14 +364,14 @@ def add_server():
     current_step += 1
 
     # Get a name for this configuration
-    step_base(current_step)
+    _step_base(current_step)
     name = _create_input_message("an arbitrary name for this server connection configuration")
     if name.strip() == "":
         name = f"Server Config {time.time()}"
     current_step += 1
 
     # Ask if the new config shall serve immediately as active config.
-    step_base(current_step)
+    _step_base(current_step)
     active = _get_pseudo_bool_option(
         "Shall the new configuration serve immediately as the active one?",
         [("Yes.", True), ("No.", False)]
@@ -327,45 +379,176 @@ def add_server():
     connection = ServerConnection(name, smtp_host, smtp_port, sender_name, sender_email, smtp_encryption, smtp_login,
                                   imap_host, imap_port, imap_encryption, imap_login, share_login)
     engine.server_connections_add_new(connection, active)
-    return None
 
 
-def manage_recipients():
+def recipient_view_list() -> None:
+    """
+    This function shows a list view of the recipients list.
+    The context menu options are currently not available.
+    :return: None.
+    """
+    recipients_list = engine.recipients_get_list()
+    name = "recipients list"
+    special_text = f"You are currently viewing the {name}.\nOf each recipient only the first email address is " \
+                   f"shown.\nBy entering the number of one of the entries, you choose this entry to perform changes " \
+                   f"to it.\nEditing is currently not supported and results in return to main menu.\n"
+    input_text = f"the number of the recipient you want to edit or {len(recipients_list) + 1} to exit this view"
+    options: list[str] = []
+    actions: list[Optional[Callable]] = []
+
+    for recipient in recipients_list:
+        option: str = f"{recipient}"
+        options.append(option)
+        # actions.append(lambda: _recipient_edit(recipients_list, recipient))
+        actions.append(None)
+        # TODO: implement the context menu function and remove the hint from list heading!
+
+    options.append("Back to recipients management")
+    actions.append(None)
+    return _print_menu(name, options, actions, special_text=special_text, input_text=input_text)
+
+
+def recipient_add() -> None:
+    """
+    This function lets the user add a recipient to the list of recipients.
+    :return: None
+    """
+    num_steps = 3
+    current_step = 1
+
+    def _step_base(i: int) -> None:
+        """
+        This subfunction creates for every step of the process a clean screen and shows some basic information.
+        :param i: the number of the current step.
+        """
+        _clear_screen()
+        print(f"You are currently adding a new recipient to your recipients list.\nStep {i} of {num_steps}\n")
+
+    # Get recipient display name
+    _step_base(current_step)
+    name = _create_input_message("the recipient's name to display in \"To\" field")
+    if name.strip() == "":
+        return None
+    current_step += 1
+
+    # Get recipient email address
+    _step_base(current_step)
+    print(
+        f"If you wish to add more than one email address for {name}, please enter now the main address and choose in the next screen to add more addresses.")
+    address = _create_input_message(f"{name}'s email address for use in \"To\" field")
+    if address.strip() == "":
+        return None
+    current_step += 1
+
+    new_recipient: Recipient = Recipient(name, address)
+
+    # Ask if there are more than one address to add to the recipient.
+    _step_base(current_step)
+    more = _get_pseudo_bool_option(
+        f"Do you wish to add more than one email address for {name}?",
+        [("Yes.", True), ("No.", False)]
+    )
+
+    # Add more email addresses
+    while more:
+        num_steps += 2
+        current_step += 1
+        _step_base(current_step)
+        address = _create_input_message(f"{name}'s next email address for use in \"To\" field")
+        if address.strip() == "":
+            break
+        new_recipient.add_address(address)
+        current_step += 1
+
+        _step_base(current_step)
+        more = _get_pseudo_bool_option(
+            f"Do you wish to add another email address for {name}?",
+            [("Yes.", True), ("No.", False)]
+        )
+    engine.recipients_add_new(new_recipient)
+
+    # Ask for more recipients
+    _step_base(current_step)
+    _get_pseudo_bool_option(
+        f"Do you wish to add another recipient to the list?",
+        [("Yes.", recipient_add), ("No.", lambda: None)]
+    )()
+
+
+def recipient_clear() -> None:
+    """
+    This function commands the engine to clear the recipients list.
+    :return: None
+    """
+    engine.recipients_clear()
+
+
+def recipient_manage():
     """
     Function to handle second main menu point
     :return: A callable representing the action chosen in the recipients management menu.
     """
-    name = "mail recipients management"
-    options = [
+    name: str = "mail recipients management"
+    options: list[str] = [
         "View list of recipients",
         "Add new recipient",
-        "Load recipients from file",
-        "Store recipients list into file",
+        "Load recipients from file (Currently not implemented)",
+        "Store recipients list into file (Currently not implemented)",
         "Clear recipients list",
         "Back to Main Menu"
     ]
-    actions = [None] * 6
+    actions: list[Optional[Callable]] = [
+        recipient_view_list,
+        recipient_add,
+        None,
+        None,
+        recipient_clear,
+        None
+    ]
     return _print_menu(name, options, actions)
 
 
-def manage_message():
+def message_load():
+    """
+    This function handles the loading of a message from a disk file.
+    :return: None
+    """
+    _clear_screen()
+    path: str = _create_input_message("the path to the message file")
+    name: str = "message loading, part II"
+    special_text: str = f"Loading file {path} ...\n\t"
+    options: list[str] = ["Back to mail message management"]
+    actions: list[Optional[Callable]] = [None]
+    if engine.message_load_file(path):
+        special_text += f"Message was successfully loaded!"
+    else:
+        special_text += f"Something went wrong."
+        options.insert(0, "Retry")
+        actions.insert(0, message_load)
+        # TODO: Stop the program from showing the "enter path" message twice after choosing "Retry"
+    special_text += "\n"
+    return _print_menu(name, options, actions, special_text=special_text)
+
+
+def message_manage():
     """
     Function to handle third main menu point
     :return: A callable representing the action chosen in the mail message setup menu.
     """
-    name = "mail message setup"
-    options = [
-        "Write or modify a message here",
+    name: str = "mail message setup"
+    options: list[str] = [
+        "Write or modify a message here (currently not implemented)",
         "Load message from file",
-        "Store message into file",
-        "Clear message",
+        "Store message into file (currently not implemented)",
+        "Clear message (currently not implemented)",
         "Back to Main Menu"
     ]
-    actions = [None] * 5
+    actions: list[Optional[Callable]] = [None] * 5
+    actions[1] = message_load
     return _print_menu(name, options, actions)
 
 
-def get_status():
+def status_get():
     """
     Function to handle fourth main menu point
     :return: A callable leading the application back to main menu.
@@ -375,23 +558,60 @@ def get_status():
         "Back to Main Menu"
     ]
     actions = [None]
-    special_text = "Welcome to the status page."
+    special_text = "Welcome to the status page.\nNot implemented yet.\n"
     return _print_menu(name, options, actions, special_text=special_text)
 
 
-def send_mail():
+def message_send():
     """
     Function to handle fifth main menu point
     :return: A callable leading the application back to main menu.
     """
-    name = ""
-    options = [
-        "Yes",
-        "No. Back to Main Menu."
-    ]
-    actions = [None] * 2
-    special_text = "Are you sure you want to send this email?"
-    return _print_menu(name, options, actions, special_text=special_text)
+
+    def _message_send_2() -> None:
+        """
+        This function sends an email and shows, what happens.
+        :return: None
+        """
+
+        def _exit() -> None:
+            """
+            This subfunction prints an exit message and returns.
+            :return: None
+            """
+            input("Please press Enter to return to main menu ... ")
+
+        name = None
+        password = None
+        server_connection = engine.server_connections_get_list().get_active()
+        _clear_screen()
+        print("Sending emails ...\n")
+        if server_connection is None:
+            print("There is no active server connection!")
+            return _exit()
+        if server_connection.smtp["login"]:
+            name = _create_input_message(f"user name for {server_connection.smtp['host']}")
+            password = getpass(f"Please enter the password for {server_connection.smtp['host']}: ")
+        status, result = engine.send_message(None, smtp_user=name, smtp_password=password)
+        _clear_screen()
+        print(status)
+        if result != "":
+            print(result)
+        return _exit()
+
+    _clear_screen()
+    print("Are you sure you want to send this email?\n\n1. Yes.\n2. No. Back to main menu.\n")
+
+    input_text: str = "Are you sure you want to send this email?"
+    choice = _create_input_message(input_text)
+    while choice not in ("1", "2"):
+        print("This is not a valid option!")
+        choice = _create_input_message(input_text)
+    match choice:
+        case "1":
+            return _message_send_2()
+        case "2":
+            return None
 
 
 def reset():
