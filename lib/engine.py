@@ -2,19 +2,23 @@
 """
 This file provides the interface between the user interface and the program routines behind.
 """
+import copy
+import io
 import smtplib
 from collections import defaultdict
 from email.message import EmailMessage
+from email.parser import BytesParser, Parser
+from email.policy import EmailPolicy
 from enum import Enum
 from typing import Any
 
-from lib import UI
 from lib.recipients import RecipientsList, Recipient
 from lib.server_connections import ServerConnectionList, ServerConnection, Encryption
+from lib.ui import UI
 
-__SCL: ServerConnectionList = ServerConnectionList()
-__RL: RecipientsList = RecipientsList()
-__MSG: EmailMessage = EmailMessage()
+_SCL: ServerConnectionList = ServerConnectionList()
+_RL: RecipientsList = RecipientsList()
+_MSG: EmailMessage = EmailMessage()
 
 
 class SendStatus(Enum):
@@ -43,7 +47,7 @@ def server_connections_get_list() -> ServerConnectionList:
     This function provides the calling user interface with the ServerConnectionList the program holds.
     :return: A ServerConnectionList object
     """
-    return __SCL
+    return _SCL
 
 
 def server_connections_add_new(new_entry: ServerConnection, active: bool) -> None:
@@ -54,7 +58,7 @@ def server_connections_add_new(new_entry: ServerConnection, active: bool) -> Non
     :param active: Tells the program to set this ServerConnection as the active one.
     :return: None
     """
-    __SCL.append(new_entry, active)
+    _SCL.append(new_entry, active)
 
 
 def recipients_get_list() -> RecipientsList:
@@ -62,7 +66,7 @@ def recipients_get_list() -> RecipientsList:
     Works the same way as server_connections_get_list.
     :return: See for yourself.
     """
-    return __RL
+    return _RL
 
 
 def recipients_add_new(new_entry: Recipient) -> None:
@@ -71,7 +75,7 @@ def recipients_add_new(new_entry: Recipient) -> None:
     :param new_entry: The Recipient to be added
     :return: None
     """
-    __RL.append(new_entry)
+    _RL.append(new_entry)
 
 
 def recipients_clear() -> None:
@@ -79,8 +83,8 @@ def recipients_clear() -> None:
     Asks the program to erase all recipients from the list.
     :return: None
     """
-    global __RL
-    __RL = RecipientsList()
+    global _RL
+    _RL = RecipientsList()
 
 
 def message_load_file(path: str) -> bool:
@@ -90,9 +94,13 @@ def message_load_file(path: str) -> bool:
     :return: True, if the file could be opened and the email could be loaded.
     """
     try:
-        with open(path) as fp:
-            message_clear()
-            __MSG.set_content(fp.read())
+        with open(path, encoding="utf8") as fp:
+            global _MSG
+            parser = BytesParser(policy=EmailPolicy().clone(utf8=True))
+            if isinstance(fp, io.TextIOBase):
+                parser = Parser(policy=EmailPolicy().clone(utf8=True))
+            _MSG = parser.parse(fp)
+            _MSG.set_charset("utf-8")
             return True
     except OSError:
         return False
@@ -103,8 +111,8 @@ def message_clear() -> None:
     See recipients_clear().
     :return: None
     """
-    global __MSG
-    __MSG = EmailMessage()
+    global _MSG
+    _MSG = EmailMessage()
 
 
 def get_status() -> dict:
@@ -127,25 +135,35 @@ def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: st
     :param imap_password: Same as with smtp_user, just for IMAP server. *Currently not used!*
     :return: Don't know yet.
     """
+    # TODO: Catch ssl.SSLError upon using encrypted connections!
     _ = (output_stream, imap_user, imap_password)
 
-    connection: ServerConnection = __SCL.get_active()
-    __MSG["From"] = str(connection.sender)
+    connection: ServerConnection = _SCL.get_active()
+    _MSG["From"] = str(connection.sender)
     with connection.get_smtp() as smtp:
         if connection.smtp["encryption"] == Encryption.STARTTLS:
             smtp.starttls()
         if connection.smtp["login"]:
             if smtp_user is None or smtp_password is None:
                 return SendStatus.SMTP_MISSING_LOGIN_DATA, ""
-            smtp.login(smtp_user, smtp_password)
+            try:
+                smtp.login(smtp_user, smtp_password)
+            except smtplib.SMTPAuthenticationError as login_fail:
+                return SendStatus.SMTP_GENERIC_ERROR, login_fail.smtp_error
+            except smtplib.SMTPHeloError:
+                return SendStatus.SMTP_HELO, ""
+            except (smtplib.SMTPNotSupportedError, smtplib.SMTPException) as ex:
+                return SendStatus.SMTP_GENERIC_ERROR, str(ex)
         else:
             smtp.ehlo_or_helo_if_needed()
 
         # Send messages, handle errors occuring.
         refused: dict[str, tuple[int, bytes]] = defaultdict(tuple[int, bytes])
-        for recipient in __RL:
+        for recipient in _RL:
+            rcpt_copy: EmailMessage = copy.copy(_MSG)
+            rcpt_copy.add_header("To", ", ".join(recipient.get_formatted()))
             try:
-                refused |= smtp.send_message(__MSG, to_addrs=recipient.get_formatted())
+                refused |= smtp.send_message(rcpt_copy)
             except smtplib.SMTPRecipientsRefused as total_fail:
                 refused |= total_fail.recipients
             except smtplib.SMTPHeloError:
