@@ -101,6 +101,8 @@ def message_load_file(path: str) -> bool:
                 parser = Parser(policy=EmailPolicy().clone(utf8=True))
             _MSG = parser.parse(fp)
             _MSG.set_charset("utf-8")
+            del _MSG["From"]
+            del _MSG["To"]
             return True
     except OSError:
         return False
@@ -139,7 +141,6 @@ def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: st
     _ = (output_stream, imap_user, imap_password)
 
     connection: ServerConnection = _SCL.get_active()
-    _MSG["From"] = str(connection.sender)
     with connection.get_smtp() as smtp:
         if connection.smtp["encryption"] == Encryption.STARTTLS:
             smtp.starttls()
@@ -160,7 +161,8 @@ def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: st
         # Send messages, handle errors occuring.
         refused: dict[str, tuple[int, bytes]] = defaultdict(tuple[int, bytes])
         for recipient in _RL:
-            rcpt_copy: EmailMessage = copy.copy(_MSG)
+            rcpt_copy: EmailMessage = copy.deepcopy(_MSG)
+            rcpt_copy.add_header("From", str(connection.sender))
             rcpt_copy.add_header("To", ", ".join(recipient.get_formatted()))
             try:
                 refused |= smtp.send_message(rcpt_copy)
