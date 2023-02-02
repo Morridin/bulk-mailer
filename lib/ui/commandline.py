@@ -476,6 +476,27 @@ def recipient_add() -> None:
     )()
 
 
+def recipient_load_file() -> None:
+    """
+    This method loads a list of recipients from a file.
+    There is currently one format accepted, although there might come more in the future.
+    :return: None
+    """
+    _clear_screen()
+    path: str = _create_input_message("the path to the file containing the recipients data")
+    name: str = "recipients loading, part II"
+    special_text: str = f"Loading file {path} ...\n\t"
+    options: list[str] = ["Back to recipients management"]
+    actions: list[Optional[Callable]] = [None]
+    if engine.recipients_load_file(path):
+        special_text += f"Recipients were successfully loaded!"
+    else:
+        special_text += f"Something went wrong. Please return to management menu to retry."
+        # TODO: Have a more gentle way to retry!
+    special_text += "\n"
+    return _print_menu(name, options, actions, special_text=special_text)
+
+
 def recipient_clear() -> None:
     """
     This function commands the engine to clear the recipients list.
@@ -501,7 +522,7 @@ def recipient_manage():
     actions: list[Optional[Callable]] = [
         recipient_view_list,
         recipient_add,
-        None,
+        recipient_load_file,
         None,
         recipient_clear,
         None

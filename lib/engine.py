@@ -6,11 +6,12 @@ import copy
 import io
 import smtplib
 from collections import defaultdict
+from email import utils
 from email.message import EmailMessage
 from email.parser import BytesParser, Parser
 from email.policy import EmailPolicy
+from email.utils import parseaddr
 from enum import Enum
-from typing import Any
 
 from lib.recipients import RecipientsList, Recipient
 from lib.server_connections import ServerConnectionList, ServerConnection, Encryption
@@ -76,6 +77,30 @@ def recipients_add_new(new_entry: Recipient) -> None:
     :return: None
     """
     _RL.append(new_entry)
+
+
+def recipients_load_file(path: str) -> bool:
+    """
+    This function expects a path to a file containing lines in the following format: Display Name <email address>
+    It then parses all recipients with their email addresses into the program.
+
+    Currently, there is no duplicate handling. This means that duplicates will only be condensed into one recipient
+    but not eliminated.
+    This may lead to recipients receiving multiple e-mails to one and the same address if there is bad data.
+    Recipients with multiple addresses will have all their e-mails gathered together and so receive their e-mails.
+    :param path: The path to the file described above.
+    :return: True on success.
+    """
+    try:
+        with open(path, encoding="utf8") as fp:
+            global _RL
+            if not isinstance(fp, io.TextIOBase):
+                return False
+            data = utils.getaddresses(fp.readlines())
+            # This mapping function is perverted. But it should do its job.
+            map(lambda name: recipients_add_new(Recipient(name, *(q[1] for q in data if q[0] == name))), set([x[0] for x in data]))
+    except OSError:
+        return False
 
 
 def recipients_clear() -> None:
