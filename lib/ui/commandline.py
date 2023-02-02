@@ -5,6 +5,7 @@ This file holds all the stuff needed for a command line ui for the bulk mailer p
 import argparse
 import platform
 import subprocess
+import sys
 import time
 from getpass import getpass
 from typing import Any, Callable, Union, Optional, Sequence
@@ -585,14 +586,14 @@ def message_send():
         password = None
         server_connection = engine.server_connections_get_list().get_active()
         _clear_screen()
-        print("Sending emails ...\n")
+        print("Establishing connection ...\n")
         if server_connection is None:
             print("There is no active server connection!")
             return _exit()
         if server_connection.smtp["login"]:
             name = _create_input_message(f"user name for {server_connection.smtp['host']}")
             password = getpass(f"Please enter the password for {server_connection.smtp['host']}: ")
-        status, result = engine.send_message(None, smtp_user=name, smtp_password=password)
+        status, result = engine.send_message(sys.stdout, smtp_user=name, smtp_password=password)
         _clear_screen()
         print(status)
         if result != "":

@@ -125,12 +125,12 @@ def get_status() -> dict:
     raise NotImplementedError()
 
 
-def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: str = None, imap_user: str = None,
+def send_message(output_stream: io.TextIOBase, *, smtp_user: str = None, smtp_password: str = None, imap_user: str = None,
                  imap_password: str = None) -> tuple[SendStatus, str]:
     """
     This function tells the program to send the message to all recipients in the list using the currently active server
     connection. Also, it gives info to the user interface (via the output_stream param) about what's going on.
-    :param output_stream: A stream object in which the info from the sending can be piped... *Currently not used!*
+    :param output_stream: A stream object in which the info from the sending can be piped...
     :param smtp_user: If the SMTP server requires authentication, use this parameter to transmit the smtp username
     :param smtp_password: If the SMTP server requires authentication, place the smtp password here.
     :param imap_user: Same as with smtp_user, just for IMAP server. *Currently not used!*
@@ -138,7 +138,7 @@ def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: st
     :return: Don't know yet.
     """
     # TODO: Catch ssl.SSLError upon using encrypted connections!
-    _ = (output_stream, imap_user, imap_password)
+    _ = (imap_user, imap_password)
 
     connection: ServerConnection = _SCL.get_active()
     with connection.get_smtp() as smtp:
@@ -160,14 +160,17 @@ def send_message(output_stream: Any, *, smtp_user: str = None, smtp_password: st
 
         # Send messages, handle errors occuring.
         refused: dict[str, tuple[int, bytes]] = defaultdict(tuple[int, bytes])
-        for recipient in _RL:
+        for i, recipient in enumerate(_RL):
+            print(f"Sending email {i} of {len(_RL)}...", file=output_stream, flush=True)
             rcpt_copy: EmailMessage = copy.deepcopy(_MSG)
             rcpt_copy.add_header("From", str(connection.sender))
             rcpt_copy.add_header("To", ", ".join(recipient.get_formatted()))
             try:
                 refused |= smtp.send_message(rcpt_copy)
+                print(f"\tSent!", file=output_stream, flush=True)
             except smtplib.SMTPRecipientsRefused as total_fail:
                 refused |= total_fail.recipients
+                print(f"\tSent!", file=output_stream, flush=True)
             except smtplib.SMTPHeloError:
                 return SendStatus.SMTP_HELO, ""
             except smtplib.SMTPSenderRefused:
