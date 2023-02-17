@@ -97,8 +97,9 @@ def recipients_load_file(path: str) -> bool:
             if not isinstance(fp, io.TextIOBase):
                 return False
             data = utils.getaddresses(fp.readlines())
-            # This mapping function is perverted. But it should do its job.
-            map(lambda name: recipients_add_new(Recipient(name, *(q[1] for q in data if q[0] == name))), set([x[0] for x in data]))
+            for k in set(x[0] for x in data):
+                recipients_add_new(Recipient(k, *(q[1] for q in data if q[0] == k)))
+            return True
     except OSError:
         return False
 
