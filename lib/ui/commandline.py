@@ -514,7 +514,7 @@ def recipient_manage():
     options: list[str] = [
         "View list of recipients",
         "Add new recipient",
-        "Load recipients from file (Currently not implemented)",
+        "Load recipients from file",
         "Store recipients list into file (Currently not implemented)",
         "Clear recipients list",
         "Back to Main Menu"
