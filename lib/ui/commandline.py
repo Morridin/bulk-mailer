@@ -615,7 +615,6 @@ def message_send():
             name = _create_input_message(f"user name for {server_connection.smtp['host']}")
             password = getpass(f"Please enter the password for {server_connection.smtp['host']}: ")
         status, result = engine.send_message(sys.stdout, smtp_user=name, smtp_password=password)
-        _clear_screen()
         print(status)
         if result != "":
             print(result)
