@@ -3,15 +3,15 @@
 This file provides the interface between the user interface and the program routines behind.
 """
 import copy
-import io
 import smtplib
 from collections import defaultdict
 from email import utils
 from email.message import EmailMessage
 from email.parser import BytesParser, Parser
 from email.policy import EmailPolicy
-from email.utils import parseaddr
 from enum import Enum
+from io import TextIOBase
+from typing import TextIO
 
 from lib.recipients import RecipientsList, Recipient
 from lib.server_connections import ServerConnectionList, ServerConnection, Encryption
@@ -94,7 +94,7 @@ def recipients_load_file(path: str) -> bool:
     try:
         with open(path, encoding="utf8") as fp:
             global _RL
-            if not isinstance(fp, io.TextIOBase):
+            if not isinstance(fp, TextIOBase):
                 return False
             data = utils.getaddresses(fp.readlines())
             for k in set(x[0] for x in data):
@@ -123,7 +123,7 @@ def message_load_file(path: str) -> bool:
         with open(path, encoding="utf8") as fp:
             global _MSG
             parser = BytesParser(policy=EmailPolicy().clone(utf8=True))
-            if isinstance(fp, io.TextIOBase):
+            if isinstance(fp, TextIOBase):
                 parser = Parser(policy=EmailPolicy().clone(utf8=True))
             _MSG = parser.parse(fp)
             _MSG.set_charset("utf-8")
@@ -151,7 +151,7 @@ def get_status() -> dict:
     raise NotImplementedError()
 
 
-def send_message(output_stream: io.TextIOBase, *, smtp_user: str = None, smtp_password: str = None, imap_user: str = None,
+def send_message(output_stream: TextIO, *, smtp_user: str = None, smtp_password: str = None, imap_user: str = None,
                  imap_password: str = None) -> tuple[SendStatus, str]:
     """
     This function tells the program to send the message to all recipients in the list using the currently active server
@@ -184,7 +184,7 @@ def send_message(output_stream: io.TextIOBase, *, smtp_user: str = None, smtp_pa
         else:
             smtp.ehlo_or_helo_if_needed()
 
-        # Send messages, handle errors occuring.
+        # Send messages, handle errors occurring.
         refused: dict[str, tuple[int, bytes]] = defaultdict(tuple[int, bytes])
         for i, recipient in enumerate(_RL):
             print(f"Sending email {i} of {len(_RL)}...", file=output_stream, flush=True)
